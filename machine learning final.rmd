@@ -1,0 +1,198 @@
+---
+title: "Machine Learning Final"
+author: "Rodney Harnanan"
+date: "3/9/2020"
+output: html_document
+keep_md: yes
+---
+
+## Background
+
+### Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a
+### large amount of data about personal activity relatively inexpensively. These type of devices
+### are part of the quantified self movement – a group of enthusiasts who take measurements about
+### themselves regularly to improve their health, to find patterns in their behavior, or because
+### they are tech geeks. One thing that people regularly do is quantify how much of a particular
+### activity they do, but they rarely quantify how well they do it. In this project, your goal
+### will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+### They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+### More information is available from the website here:
+### http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+### The training data for this project are available here:
+
+### https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+### The test data are available here:
+
+### https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+### The data for this project come from this source:
+### http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Reproducibility
+
+### An overall pseudo-random number generator seed was set at 1231 for all code.
+### In order to reproduce the results below, the same seed should be used.
+### The Packages and Libraries below should also be installed in order to reproduce the results.
+
+## How the model was built
+
+### Our outcome variable is classe, a factor variable with 5 levels.
+### For this data set, “participants were asked to perform one set of 10
+### repetitions of the Unilateral Dumbbell Biceps Curl in 5 different fashions:
+
+#### - exactly according to the specification (Class A)
+#### - throwing the elbows to the front (Class B)
+#### - lifting the dumbbell only halfway (Class C)
+#### - lowering the dumbbell only halfway (Class D)
+#### - throwing the hips to the front (Class E)
+
+## Install Packages and Libraries 
+
+
+```{r}
+# install.packages("caret"); install.packages("randomForest"); install.packages("rpart"); 
+library(ggplot2);library(lattice);  library(caret); library(randomForest); library(rpart); library(rpart.plot);
+
+
+set.seed(1321)
+
+```
+
+### Some missing values are coded as string "#DIV/0!" or "" or "NA" - these will be changed to NA.
+### Columns with all missing values will be deleted. 
+
+
+```{r}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+## Load
+
+
+
+```{r}
+training <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+```
+
+
+### Check dimensions for number of variables and number of observations
+
+
+
+```{r}
+dim(training)
+dim(testing)
+```
+### Delete columns with all missing values
+
+```{r}
+training<-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+```
+
+
+### Check dimensions for number of variables after missing values are removed
+
+```{r}
+dim(training)
+dim(testing)
+```
+
+### Some variables are irrelevant to our current project: user_name, raw_timestamp_part_1,
+### raw_timestamp_part_,2 cvtd_timestamp, new_window, and  num_window (columns 1 to 7).
+### We can delete these variables.
+
+```{r}
+training   <-training[,-c(1:7)]
+
+testing <-testing[,-c(1:7)]
+```
+### Check dimensions and str
+
+```{r}
+dim(training)
+dim(testing)
+str(training)
+str(testing)
+
+```
+### The training data set is partionned into 2 sets: subTraining (70%) and subTest (30%).
+### This will be performed using random subsampling without replacement.
+
+```{r}
+subsamples <- createDataPartition(y=training$classe, p=0.70, list=FALSE)
+subTraining <- training[subsamples, ] 
+subTesting <- training[-subsamples, ]
+dim(subTraining)
+dim(subTesting)
+
+
+plot(subTraining$classe, col="green", main="Plot of levels of variable classe (subTraining)", xlab="classe", ylab="Frequency")
+
+```
+### Level A is most frequent and level D is the least. 
+
+## Training Decision Tree
+
+```{r}
+modelDtree <- rpart(classe ~ ., data=subTraining, method="class")
+```
+
+## Predicting
+
+```{r}
+prediction1 <- predict(modelDtree, subTesting, type = "class")
+```
+## Plot the Decision Tree
+
+
+```{r}
+rpart.plot(modelDtree, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+### Test results on our subTesting data set:
+
+```{r}
+confusionMatrix(prediction1, subTesting$classe)
+```
+
+## Training Random Forest
+```{r}
+modelRF <- randomForest(classe ~. , data=subTraining, method="class")
+```
+## Predicting:
+```{r}
+prediction2 <- predict(modelRF, subTesting, type = "class")
+```
+# Test results on subTesting data set:
+```{r}
+confusionMatrix(prediction2, subTesting$classe)
+```
+### Which Prediction Model to Use:
+
+### Random Forest algorithm performed better than Decision Trees. Accuracy for Random Forest model was
+### 0.995 (95% CI: (0.993, 0.997)) compared to Decision Tree model with 0.739 (95% CI: (0.727, 0.752)).
+### The Random Forests model is choosen. The expected out-of-sample error is estimated at 0.005, or 0.5%.
+
+## Submission
+
+## predict levels on the original testing data, using Random Forest.
+
+```{r}
+predictfinal <- predict(modelRF, testing, type="class")
+
+predictfinal
+```
+### References
+### [1] Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. 
+###Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+### [2] Krzysztof Gra??bczewski and Norbert Jankowski. Feature Selection with Decision Tree Criterion.
+
